@@ -1,56 +1,78 @@
 ﻿using System;
-using System.Threading;
+using System.Diagnostics;
+using System.IO;
+using System.Windows.Forms;
 
-namespace RainbowWorm
+namespace LocalExplorer
 {
     class MainClass
     {
-        public const String DEFAULT_TEXT = "-++###########++-";
-        public static ConsoleColor defaultColor = Console.ForegroundColor;
-
         public static void Main(string[] args)
         {
-            string wormTxt = DEFAULT_TEXT;
+            if (args.Length < 1)
+            {
+                MessageBox.Show("File Path is Empty", "System Tips", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-            // Setup console
-            Console.CursorVisible = false;
-            Console.CancelKeyPress += new ConsoleCancelEventHandler(ExitHandler);
-            
-            // Setup string
-            if (args.Length > 0) {
-                // Use first arg as worm text if its set
-                wormTxt = string.IsNullOrEmpty(args[0]) ? DEFAULT_TEXT : args[0];
+                return;
             }
 
-            // Colours to use
-            ConsoleColor[] colors = new ConsoleColor[] {
-                ConsoleColor.Blue,
-                ConsoleColor.Cyan,
-                ConsoleColor.Gray,
-                ConsoleColor.Green,
-                ConsoleColor.Magenta,
-                ConsoleColor.Red,
-                ConsoleColor.White,
-                ConsoleColor.Yellow
-            };
+            string filePath = args[0];
 
-            // Draw worm
-            //Source: https://codegolf.stackexchange.com/a/18733
-            int index = 0;
-            for (var i = 0d; ;) {
-                if (index == colors.Length) { index = 0; }
-                Console.ForegroundColor = colors[index];
-                Console.Write("{0," + (int)(40 + 20 * Math.Sin(i += .1)) + "}\n", wormTxt);
-                index++;
-                Thread.Sleep(25);
+            // escape
+            filePath = Uri.UnescapeDataString(filePath).Replace("/", "\\");
+
+            // delete protocol
+            filePath = filePath.Replace("localexplorer:", "");
+            filePath = filePath.Replace("file:", "");
+            // get right file path
+            filePath = filePath.Substring(filePath.IndexOf('\\'));
+            //Console.WriteLine(filePath);
+
+            if (Directory.Exists(filePath) || File.Exists(filePath))
+            {
+                Process p = new Process();
+                p.StartInfo.FileName = "explorer.exe";
+                p.StartInfo.CreateNoWindow = true;
+                p.StartInfo.UseShellExecute = false;
+
+                // hidden
+                p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+
+                p.EnableRaisingEvents = true;
+                p.StartInfo.RedirectStandardError = true;
+
+                if (File.Exists(filePath))
+                {
+                    p.StartInfo.Arguments = @"/select," + filePath;
+                }
+                else
+                {
+                    p.StartInfo.Arguments = filePath;
+                }
+
+                try
+                {
+                    p.Start();
+
+                    // explorer.exe 异常结束时，会导致启动不断重启
+                    p.WaitForExit();
+
+                    if (p != null)
+                    {
+                        p.Close();
+                        p.Dispose();
+                        p = null;
+                    }
+                }
+                catch (Exception e)
+                {
+                    MessageBox.Show(e.ToString(), "System error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
-        }
-
-        protected static void ExitHandler(object sender, ConsoleCancelEventArgs args)
-        {
-            // Restore console
-            Console.CursorVisible = true;
-            Console.ForegroundColor = defaultColor;
+            else
+            {
+                MessageBox.Show("Not Found Path : \n" + filePath, "System error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }
